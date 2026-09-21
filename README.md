@@ -1,12 +1,12 @@
 # ESP32-CAM Phone Webcam
 
-Live MJPEG from an AI-Thinker ESP32-CAM, pan from your phone, and an HC-SR04 distance readout. The board serves the website itself.
+Live MJPEG from an ESP32-WROVER camera board, pan from your phone, and an HC-SR04 distance readout. The board serves the website itself.
 
 It tries your home Wi-Fi first. If that fails, it starts a hotspot named `ESP-CAM` (password `esp32cam`) at `http://192.168.4.1`.
 
 ## What you need
 
-- AI-Thinker ESP32-CAM
+- ESP32-WROVER camera board (WROVER-KIT / Freenove CAM)
 - SG90-style 180° servo
 - HC-SR04 ultrasonic sensor
 - Two resistors for a 5V→3.3V divider (2.2 kΩ and 3.3 kΩ, or similar)
@@ -18,7 +18,7 @@ It tries your home Wi-Fi first. If that fails, it starts a hotspot named `ESP-CA
 
 The camera already uses most GPIOs. Only leftover pins are used here:
 
-| Function | ESP32-CAM pin |
+| Function | GPIO |
 | --- | --- |
 | Servo signal | GPIO 14 |
 | Ultrasonic TRIG | GPIO 13 |

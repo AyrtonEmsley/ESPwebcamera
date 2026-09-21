@@ -23,3 +23,11 @@
 
 #define CAM_FRAME_SIZE   FRAMESIZE_QVGA
 #define CAM_JPEG_QUALITY 12
+
+#define MOTION_ON_CM         170.0f
+#define MOTION_SLEEP_CM      250.0f
+#define MOTION_SLEEP_MS      4000
+#define MOTION_COOLDOWN_MS   2500
+#define MOTION_POLL_MS       150
+#define SERVO_IGNORE_MS      800
+#define EVENT_LOG_SIZE       40

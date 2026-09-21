@@ -55,6 +55,7 @@ const char INDEX_HTML[] = R"rawliteral(
     #badge.ap { color: var(--accent); border-color: var(--accent); }
     #badge.sta { color: var(--ok); border-color: #4a6a38; }
     .frame {
+      position: relative;
       background: #0b0a08;
       border: 1px solid var(--line);
       border-radius: 0.7rem;
@@ -67,6 +68,39 @@ const char INDEX_HTML[] = R"rawliteral(
       height: auto;
       background: #000;
     }
+    #cam-error {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1rem;
+      color: var(--muted);
+      background: #0b0a08;
+    }
+    #cam-error.show { display: flex; }
+    .wake-btn {
+      margin-left: 0.6rem;
+      min-width: auto;
+      min-height: 2.2rem;
+      padding: 0 0.8rem;
+      font-size: 0.8rem;
+    }
+    #log {
+      max-height: 12rem;
+      overflow: auto;
+      font-size: 0.88rem;
+    }
+    #log .empty { color: var(--muted); }
+    #log .item {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+    #log .item:last-child { border-bottom: 0; }
     .row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -135,6 +169,7 @@ const char INDEX_HTML[] = R"rawliteral(
     </header>
     <div class="frame">
       <img id="stream" alt="Live camera">
+      <div id="cam-error">Waiting for motion. Camera is asleep to save power.</div>
     </div>
     <div class="row">
       <div class="card">
@@ -153,18 +188,43 @@ const char INDEX_HTML[] = R"rawliteral(
           <button type="button" id="right" aria-label="Pan right">▶</button>
         </div>
       </div>
+      <div class="card wide">
+        <div class="label">Motion log <button type="button" class="wake-btn" id="wake">Wake camera</button></div>
+        <div id="log"><div class="empty">No motion yet</div></div>
+      </div>
     </div>
   </main>
   <script>
     const stream = document.getElementById("stream");
+    const camError = document.getElementById("cam-error");
     const badge = document.getElementById("badge");
     const distanceEl = document.getElementById("distance");
+    const logEl = document.getElementById("log");
     const angleSlider = document.getElementById("angle");
     const angleReadout = document.getElementById("angle-readout");
     let angle = 90;
     let lastSent = 0;
+    let streamOn = false;
 
-    stream.src = "http://" + location.hostname + ":81/stream";
+    function clamp(n) { return Math.max(0, Math.min(180, n)); }
+
+    function ago(ms) {
+      const s = Math.round(ms / 1000);
+      if (s < 60) return s + "s ago";
+      const m = Math.round(s / 60);
+      if (m < 60) return m + "m ago";
+      return Math.round(m / 60) + "h ago";
+    }
+
+    function setStream(on) {
+      if (on && !streamOn) {
+        streamOn = true;
+        stream.src = "http://" + location.hostname + ":81/stream?t=" + Date.now();
+      } else if (!on && streamOn) {
+        streamOn = false;
+        stream.removeAttribute("src");
+      }
+    }
 
     function clamp(n) { return Math.max(0, Math.min(180, n)); }
 
@@ -200,6 +260,18 @@ const char INDEX_HTML[] = R"rawliteral(
           angleSlider.value = String(angle);
           angleReadout.textContent = angle + "°";
         }
+        if (data.failed) {
+          camError.textContent = "Camera not found. Check the ribbon and 5V power.";
+          camError.classList.add("show");
+          setStream(false);
+        } else if (data.camera && data.live) {
+          camError.classList.remove("show");
+          setStream(true);
+        } else {
+          camError.textContent = "Waiting for motion. Camera is asleep to save power.";
+          camError.classList.add("show");
+          setStream(false);
+        }
       } catch (e) {
         badge.className = "";
         badge.textContent = "Offline";
@@ -218,10 +290,34 @@ const char INDEX_HTML[] = R"rawliteral(
       } catch (e) {}
     }
 
+    async function refreshEvents() {
+      try {
+        const res = await fetch("/events", { cache: "no-store" });
+        const data = await res.json();
+        const items = data.events || [];
+        if (!items.length) {
+          logEl.innerHTML = '<div class="empty">No motion yet</div>';
+          return;
+        }
+        logEl.innerHTML = items.map((ev) => {
+          const when = ev.t ? ev.t : ago(ev.ago_ms);
+          const dist = (ev.cm === null || ev.cm === undefined) ? "—" : Number(ev.cm).toFixed(1) + " cm";
+          return '<div class="item"><span>' + when + '</span><span>' + dist + '</span></div>';
+        }).join("");
+      } catch (e) {}
+    }
+
+    document.getElementById("wake").onclick = async () => {
+      try { await fetch("/wake", { cache: "no-store" }); } catch (e) {}
+      refreshStatus();
+    };
+
     refreshStatus();
     refreshDistance();
+    refreshEvents();
     setInterval(refreshDistance, 250);
-    setInterval(refreshStatus, 5000);
+    setInterval(refreshStatus, 1000);
+    setInterval(refreshEvents, 1000);
   </script>
 </body>
 </html>
